@@ -9,7 +9,7 @@
 
 ## Overview
 
-A Golang lock-free thread-safe map[uintptr]interface{} optimized for fastest read access.
+A Golang lock-free thread-safe map (with numeric keys only) optimized for fastest read access
 
 ## Usage
 
