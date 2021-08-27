@@ -43,11 +43,6 @@ count := counter.Get() // read counter
 
 * [Compare-and-swap](https://en.wikipedia.org/wiki/Compare-and-swap) access for values
 
-
-### Benefits over [Golangs sync.Map](https://golang.org/pkg/sync/#Map)
-
-* Faster
-
 ## Technical details
 
 * Technical design decisions have been made based on benchmarks that are stored in an external repository:
