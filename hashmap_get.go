@@ -5,19 +5,19 @@ import (
 )
 
 // Get retrieves an element from the map under given hashed key.
-func (m *Map) Get(hashedKey uintptr) (value interface{}, ok bool) {
-	data, element := m.indexElement(hashedKey)
+func (m *Map) Get(key uintptr) (value interface{}, ok bool) {
+	data, element := m.indexElement(key)
 	if data == nil {
 		return nil, false
 	}
 
 	// inline Map.searchItem()
 	for element != nil {
-		if element.Key() == hashedKey {
+		if element.Key() == key {
 			return element.Value(), true
 		}
 
-		if element.Key() > hashedKey {
+		if element.Key() > key {
 			return nil, false
 		}
 
