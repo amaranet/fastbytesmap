@@ -209,8 +209,8 @@ func (m *Map) insertListElement(element *sortedlist.ListElement, update bool) bo
 	}
 }
 
-// CAS performs a compare and swap operation sets the value under the specified hash key to the map. An existing item for this key will be overwritten.
-func (m *Map) CAS(hashedKey uintptr, from, to interface{}) bool {
+// CAS performs a compare and swap operation sets the value under the specified key to the map. An existing item for this key will be overwritten.
+func (m *Map) CAS(key uintptr, from, to interface{}) bool {
 	data, existing := m.indexElement(hashedKey)
 	if data == nil {
 		return false
