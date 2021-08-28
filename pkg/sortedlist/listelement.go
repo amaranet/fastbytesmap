@@ -15,6 +15,7 @@ type ListElement struct {
 	deleted         atomic2.Uintptr // marks the item as deleting or deleted
 }
 
+// NewElement returns an initialized list element.
 func NewElement(key uintptr, value interface{}) *ListElement {
 	return &ListElement{
 		key:   atomic2.Uintptr(key),
