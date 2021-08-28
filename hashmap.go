@@ -33,11 +33,6 @@ type (
 		resizing uintptr        // flag that marks a resizing operation in progress
 	}
 
-	// KeyValue represents a key/value that is returned by the iterator.
-	KeyValue struct {
-		Key   uintptr
-		Value interface{}
-	}
 )
 
 // New returns a new Map instance with a specific initialization size.
