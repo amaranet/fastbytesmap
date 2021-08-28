@@ -15,7 +15,7 @@ import (
 const DefaultSize = 8
 
 // MaxFillRate is the maximum fill rate for the slice before a resize  will happen.
-const MaxFillRate = float32(0.5)
+const MaxFillRate = float64(0.5)
 
 type (
 	hashMapData struct {
@@ -67,19 +67,19 @@ func (m *Map) allocate(newSize uintptr) {
 }
 
 // FillRate returns the fill rate of the map.
-func (m *Map) FillRate() float32 {
+func (m *Map) FillRate() float64 {
 	data := m.mapData()
-	count := float32(atomic.LoadUintptr(&data.count))
-	l := float32(uintptr(len(data.index)))
+	count := float64(atomic.LoadUintptr(&data.count))
+	l := float64(len(data.index))
 	return count / l
 }
 
 func (m *Map) resizeNeeded(data *hashMapData, count uintptr) bool {
-	l := uintptr(len(data.index))
+	l := float64(len(data.index))
 	if l == 0 {
 		return false
 	}
-	fillRate := (count * 100) / l
+	fillRate := float64(count) / l
 	return fillRate > MaxFillRate
 }
 
