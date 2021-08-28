@@ -32,7 +32,6 @@ type (
 		listPtr  unsafe.Pointer // key sorted linked list of elements
 		resizing uintptr        // flag that marks a resizing operation in progress
 	}
-
 )
 
 // New returns a new Map instance with a specific initialization size.
