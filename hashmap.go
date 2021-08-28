@@ -15,7 +15,7 @@ import (
 const DefaultSize = 8
 
 // MaxFillRate is the maximum fill rate for the slice before a resize  will happen.
-const MaxFillRate = 50
+const MaxFillRate = float32(0.5)
 
 type (
 	hashMapData struct {
