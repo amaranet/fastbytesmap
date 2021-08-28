@@ -1,4 +1,4 @@
-package fastintmap
+package sortedlist
 
 import (
 	"github.com/itsabgr/atomic2"
@@ -15,9 +15,21 @@ type ListElement struct {
 	deleted         atomic2.Uintptr // marks the item as deleting or deleted
 }
 
+func NewElement(key uintptr, value interface{}) *ListElement {
+	return &ListElement{
+		key:   atomic2.Uintptr(key),
+		value: unsafe.Pointer(&value),
+	}
+}
+
 // Value returns the value of the list item.
 func (e *ListElement) Value() (value interface{}) {
 	return *(*interface{})(atomic.LoadPointer(&e.value))
+}
+
+// Key returns the key of the list item.
+func (e *ListElement) Key() uintptr {
+	return uintptr(e.key)
 }
 
 // Next returns the item on the right.

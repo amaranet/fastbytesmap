@@ -1,4 +1,4 @@
-package fastintmap
+package sortedlist
 
 import "testing"
 

@@ -3,7 +3,8 @@ package fastintmap
 import (
 	"bytes"
 	"fmt"
-	"github.com/itsabgr/atomic2"
+	"github.com/itsabgr/fastintmap/pkg/sortedlist"
+	"github.com/itsabgr/go-handy"
 	"reflect"
 	"strconv"
 	"sync/atomic"
@@ -18,51 +19,52 @@ const MaxFillRate = 50
 
 type (
 	hashMapData struct {
-		keyshifts uintptr        // Pointer size - log2 of array size, to be used as index in the data array
-		count     uintptr        // count of filled elements in the slice
-		data      unsafe.Pointer // pointer to slice data array
-		index     []*ListElement // storage for the slice for the garbage collector to not clean it up
+		keyShifts uintptr                   // Pointer size - log2 of array size, to be used as index in the data array
+		count     uintptr                   // count of filled elements in the slice
+		data      unsafe.Pointer            // pointer to slice data array
+		index     []*sortedlist.ListElement // storage for the slice for the garbage collector to not clean it up
 	}
 
-	// HashMap implements a read optimized hash map.
-	HashMap struct {
-		datamap    unsafe.Pointer // pointer to a map instance that gets replaced if the map resizes
-		linkedlist unsafe.Pointer // key sorted linked list of elements
-		resizing   uintptr        // flag that marks a resizing operation in progress
+	// Map implements a read optimized hash map.
+	Map struct {
+		_noCopy  handy.NoCopy
+		dataMap  unsafe.Pointer // pointer to a map instance that gets replaced if the map resizes
+		listPtr  unsafe.Pointer // key sorted linked list of elements
+		resizing uintptr        // flag that marks a resizing operation in progress
 	}
 
 	// KeyValue represents a key/value that is returned by the iterator.
 	KeyValue struct {
-		Key   interface{}
+		Key   uintptr
 		Value interface{}
 	}
 )
 
-// New returns a new HashMap instance with a specific initialization size.
-func New(size uintptr) *HashMap {
-	m := &HashMap{}
+// New returns a new Map instance with a specific initialization size.
+func New(size uintptr) *Map {
+	m := &Map{}
 	m.allocate(size)
 	return m
 }
 
 // Len returns the number of elements within the map.
-func (m *HashMap) Len() int {
+func (m *Map) Len() int {
 	list := m.list()
 	return list.Len()
 }
 
-func (m *HashMap) mapData() *hashMapData {
-	return (*hashMapData)(atomic.LoadPointer(&m.datamap))
+func (m *Map) mapData() *hashMapData {
+	return (*hashMapData)(atomic.LoadPointer(&m.dataMap))
 }
 
-func (m *HashMap) list() *List {
-	return (*List)(atomic.LoadPointer(&m.linkedlist))
+func (m *Map) list() *sortedlist.List {
+	return (*sortedlist.List)(atomic.LoadPointer(&m.listPtr))
 }
 
-func (m *HashMap) allocate(newSize uintptr) {
-	list := NewList()
+func (m *Map) allocate(newSize uintptr) {
+	list := sortedlist.NewList()
 	// atomic swap in case of another allocation happening concurrently
-	if atomic.CompareAndSwapPointer(&m.linkedlist, nil, unsafe.Pointer(list)) {
+	if atomic.CompareAndSwapPointer(&m.listPtr, nil, unsafe.Pointer(list)) {
 		if atomic.CompareAndSwapUintptr(&m.resizing, uintptr(0), uintptr(1)) {
 			m.grow(newSize, false)
 		}
@@ -70,14 +72,14 @@ func (m *HashMap) allocate(newSize uintptr) {
 }
 
 // FillRate returns the fill rate of the map.
-func (m *HashMap) FillRate() float32 {
+func (m *Map) FillRate() float32 {
 	data := m.mapData()
 	count := float32(atomic.LoadUintptr(&data.count))
 	l := float32(uintptr(len(data.index)))
 	return count / l
 }
 
-func (m *HashMap) resizeNeeded(data *hashMapData, count uintptr) bool {
+func (m *Map) resizeNeeded(data *hashMapData, count uintptr) bool {
 	l := uintptr(len(data.index))
 	if l == 0 {
 		return false
@@ -86,19 +88,19 @@ func (m *HashMap) resizeNeeded(data *hashMapData, count uintptr) bool {
 	return fillRate > MaxFillRate
 }
 
-func (m *HashMap) indexElement(hashedKey uintptr) (data *hashMapData, item *ListElement) {
+func (m *Map) indexElement(hashedKey uintptr) (data *hashMapData, item *sortedlist.ListElement) {
 	data = m.mapData()
 	if data == nil {
 		return nil, nil
 	}
-	index := hashedKey >> data.keyshifts
+	index := hashedKey >> data.keyShifts
 	ptr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(data.data) + index*intSizeBytes))
-	item = (*ListElement)(atomic.LoadPointer(ptr))
+	item = (*sortedlist.ListElement)(atomic.LoadPointer(ptr))
 	return data, item
 }
 
 /* The Golang 1.10.1 compiler dons not inline this function well
-func (m *HashMap) searchItem(item *ListElement, key interface{}, keyHash uintptr) (value interface{}, ok bool) {
+func (m *Map) searchItem(item *ListElement, key interface{}, keyHash uintptr) (value interface{}, ok bool) {
 	for item != nil {
 		if item.keyHash == keyHash && item.key == key {
 			return item.Value(), true
@@ -114,53 +116,24 @@ func (m *HashMap) searchItem(item *ListElement, key interface{}, keyHash uintptr
 }
 */
 
-// Del deletes the key from the map.
-func (m *HashMap) Del(key uintptr) {
-	list := m.list()
-	if list == nil {
-		return
-	}
-	h := key
-
-	var element *ListElement
-ElementLoop:
-	for _, element = m.indexElement(h); element != nil; element = element.Next() {
-		if uintptr(element.key) == h {
-			if uintptr(element.key) == key {
-				break ElementLoop
-			}
-		}
-
-		if uintptr(element.key) > h {
-			return
-		}
-	}
-	if element == nil {
-		return
-	}
-
-	m.deleteElement(element)
-	list.Delete(element)
-}
-
-// DelHashedKey deletes the hashed key from the map.
-func (m *HashMap) DelHashedKey(hashedKey uintptr) {
+// Delete deletes the hashed key from the map.
+func (m *Map) Delete(hashedKey uintptr) {
 	list := m.list()
 	if list == nil {
 		return
 	}
 
-	// inline HashMap.searchItem()
-	var element *ListElement
+	// inline Map.searchItem()
+	var element *sortedlist.ListElement
 ElementLoop:
 	for _, element = m.indexElement(hashedKey); element != nil; element = element.Next() {
-		if uintptr(element.key) == hashedKey {
+		if element.Key() == hashedKey {
 
 			break ElementLoop
 
 		}
 
-		if uintptr(element.key) > hashedKey {
+		if element.Key() > hashedKey {
 			return
 		}
 	}
@@ -173,53 +146,47 @@ ElementLoop:
 }
 
 // deleteElement deletes an element from index
-func (m *HashMap) deleteElement(element *ListElement) {
+func (m *Map) deleteElement(element *sortedlist.ListElement) {
 	for {
 		data := m.mapData()
-		index := element.key >> data.keyshifts
-		ptr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(data.data) + uintptr(index*intSizeBytes)))
+		index := element.Key() >> data.keyShifts
+		ptr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(data.data) + index*intSizeBytes))
 
 		next := element.Next()
-		if next != nil && element.key>>data.keyshifts != index {
+		if next != nil && element.Key()>>data.keyShifts != index {
 			next = nil // do not set index to next item if it's not the same slice index
 		}
 		atomic.CompareAndSwapPointer(ptr, unsafe.Pointer(element), unsafe.Pointer(next))
 
-		currentdata := m.mapData()
-		if data == currentdata { // check that no resize happened
+		currentData := m.mapData()
+		if data == currentData { // check that no resize happened
 			break
 		}
 	}
 }
 
-// Insert sets the value under the specified key to the map if it does not exist yet.
+// Add sets the value under the specified key to the map if it does not exist yet.
 // If a resizing operation is happening concurrently while calling Set, the item might show up in the map only after the resize operation is finished.
 // Returns true if the item was inserted or false if it existed.
-func (m *HashMap) Insert(key uintptr, value interface{}) bool {
-	element := &ListElement{
-		key:   atomic2.Uintptr(key),
-		value: unsafe.Pointer(&value),
-	}
+func (m *Map) Add(key uintptr, value interface{}) bool {
+	element := sortedlist.NewElement(key, value)
 	return m.insertListElement(element, false)
 }
 
 // Set sets the value under the specified key to the map. An existing item for this key will be overwritten.
 // If a resizing operation is happening concurrently while calling Set, the item might show up in the map only after the resize operation is finished.
-func (m *HashMap) Set(key uintptr, value interface{}) {
+func (m *Map) Set(key uintptr, value interface{}) {
 
-	element := &ListElement{
-		key:   atomic2.Uintptr(key),
-		value: unsafe.Pointer(&value),
-	}
+	element := sortedlist.NewElement(key, value)
 	m.insertListElement(element, true)
 }
 
-func (m *HashMap) insertListElement(element *ListElement, update bool) bool {
+func (m *Map) insertListElement(element *sortedlist.ListElement, update bool) bool {
 	for {
-		data, existing := m.indexElement(uintptr(element.key))
+		data, existing := m.indexElement(element.Key())
 		if data == nil {
 			m.allocate(DefaultSize)
-			continue // read mapdata and slice item again
+			continue // read mapData and slice item again
 		}
 		list := m.list()
 
@@ -247,8 +214,8 @@ func (m *HashMap) insertListElement(element *ListElement, update bool) bool {
 	}
 }
 
-// CasHashedKey performs a compare and swap operation sets the value under the specified hash key to the map. An existing item for this key will be overwritten.
-func (m *HashMap) CasHashedKey(hashedKey uintptr, from, to interface{}) bool {
+// CAS performs a compare and swap operation sets the value under the specified hash key to the map. An existing item for this key will be overwritten.
+func (m *Map) CAS(hashedKey uintptr, from, to interface{}) bool {
 	data, existing := m.indexElement(hashedKey)
 	if data == nil {
 		return false
@@ -258,33 +225,25 @@ func (m *HashMap) CasHashedKey(hashedKey uintptr, from, to interface{}) bool {
 		return false
 	}
 
-	element := &ListElement{
-		key:   atomic2.Uintptr(hashedKey),
-		value: unsafe.Pointer(&to),
-	}
+	element := sortedlist.NewElement(hashedKey, to)
 	return list.Cas(element, from, existing)
 }
 
-// Cas performs a compare and swap operation sets the value under the specified hash key to the map. An existing item for this key will be overwritten.
-func (m *HashMap) Cas(key uintptr, from, to interface{}) bool {
-	return m.CasHashedKey(key, from, to)
-}
-
 // adds an item to the index if needed and returns the new item counter if it changed, otherwise 0
-func (mapData *hashMapData) addItemToIndex(item *ListElement) uintptr {
-	index := item.key >> mapData.keyshifts
-	ptr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(mapData.data) + uintptr(index*intSizeBytes)))
+func (mapData *hashMapData) addItemToIndex(item *sortedlist.ListElement) uintptr {
+	index := item.Key() >> mapData.keyShifts
+	ptr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(mapData.data) + index*intSizeBytes))
 
 	for { // loop until the smallest key hash is in the index
-		element := (*ListElement)(atomic.LoadPointer(ptr)) // get the current item in the index
-		if element == nil {                                // no item yet at this index
+		element := (*sortedlist.ListElement)(atomic.LoadPointer(ptr)) // get the current item in the index
+		if element == nil {                                           // no item yet at this index
 			if atomic.CompareAndSwapPointer(ptr, nil, unsafe.Pointer(item)) {
 				return atomic.AddUintptr(&mapData.count, 1)
 			}
 			continue // a new item was inserted concurrently, retry
 		}
 
-		if item.key < element.key {
+		if item.Key() < element.Key() {
 			// the new item is the smallest for this index?
 			if !atomic.CompareAndSwapPointer(ptr, unsafe.Pointer(element), unsafe.Pointer(item)) {
 				continue // a new item was inserted concurrently, retry
@@ -298,13 +257,13 @@ func (mapData *hashMapData) addItemToIndex(item *ListElement) uintptr {
 // To double the size of the hashmap use newSize 0.
 // This function returns immediately, the resize operation is done in a goroutine.
 // No resizing is done in case of another resize operation already being in progress.
-func (m *HashMap) Grow(newSize uintptr) {
+func (m *Map) Grow(newSize uintptr) {
 	if atomic.CompareAndSwapUintptr(&m.resizing, uintptr(0), uintptr(1)) {
 		go m.grow(newSize, true)
 	}
 }
 
-func (m *HashMap) grow(newSize uintptr, loop bool) {
+func (m *Map) grow(newSize uintptr, loop bool) {
 	defer atomic.CompareAndSwapUintptr(&m.resizing, uintptr(1), uintptr(0))
 
 	for {
@@ -315,20 +274,20 @@ func (m *HashMap) grow(newSize uintptr, loop bool) {
 			newSize = roundUpPower2(newSize)
 		}
 
-		index := make([]*ListElement, newSize)
+		index := make([]*sortedlist.ListElement, newSize)
 		header := (*reflect.SliceHeader)(unsafe.Pointer(&index))
 
-		newdata := &hashMapData{
-			keyshifts: strconv.IntSize - log2(newSize),
+		newData := &hashMapData{
+			keyShifts: strconv.IntSize - log2(newSize),
 			data:      unsafe.Pointer(header.Data), // use address of slice data storage
 			index:     index,
 		}
 
-		m.fillIndexItems(newdata) // initialize new index slice with longer keys
+		m.fillIndexItems(newData) // initialize new index slice with longer keys
 
-		atomic.StorePointer(&m.datamap, unsafe.Pointer(newdata))
+		atomic.StorePointer(&m.dataMap, unsafe.Pointer(newData))
 
-		m.fillIndexItems(newdata) // make sure that the new index is up to date with the current state of the linked list
+		m.fillIndexItems(newData) // make sure that the new index is up to date with the current state of the linked list
 
 		if !loop {
 			break
@@ -336,14 +295,14 @@ func (m *HashMap) grow(newSize uintptr, loop bool) {
 
 		// check if a new resize needs to be done already
 		count := uintptr(m.Len())
-		if !m.resizeNeeded(newdata, count) {
+		if !m.resizeNeeded(newData, count) {
 			break
 		}
 		newSize = 0 // 0 means double the current size
 	}
 }
 
-func (m *HashMap) fillIndexItems(mapData *hashMapData) {
+func (m *Map) fillIndexItems(mapData *hashMapData) {
 	list := m.list()
 	if list == nil {
 		return
@@ -353,7 +312,7 @@ func (m *HashMap) fillIndexItems(mapData *hashMapData) {
 	lastIndex := uintptr(0)
 
 	for item != nil {
-		index := uintptr(item.key >> mapData.keyshifts)
+		index := item.Key() >> mapData.keyShifts
 		if item == first || index != lastIndex { // store item with smallest hash key for every index
 			mapData.addItemToIndex(item)
 			lastIndex = index
@@ -363,7 +322,7 @@ func (m *HashMap) fillIndexItems(mapData *hashMapData) {
 }
 
 // String returns the map as a string, only hashed keys are printed.
-func (m *HashMap) String() string {
+func (m *Map) String() string {
 	list := m.list()
 	if list == nil {
 		return "[]"
@@ -379,32 +338,27 @@ func (m *HashMap) String() string {
 		if item != first {
 			buffer.WriteRune(',')
 		}
-		fmt.Fprint(buffer, item.key)
+		_, _ = fmt.Fprint(buffer, item.Key())
 		item = item.Next()
 	}
 	buffer.WriteRune(']')
 	return buffer.String()
 }
 
-// Iter returns an iterator which could be used in a for range loop.
-// The order of the items is sorted by hash keys.
-func (m *HashMap) Iter() <-chan KeyValue {
-	ch := make(chan KeyValue) // do not use a size here since items can get added during iteration
-
-	go func() {
-		list := m.list()
-		if list == nil {
-			close(ch)
-			return
+//Visit visits the entries in key order, calling fn for each. if the fn returns non-nil error stops process and returns that error
+func (m *Map) Visit(fn func(key uintptr, value interface{}) error) error {
+	list := m.list()
+	if list == nil {
+		return nil
+	}
+	item := list.First()
+	for item != nil {
+		value := item.Value()
+		err := fn(item.Key(), value)
+		if err != nil {
+			return err
 		}
-		item := list.First()
-		for item != nil {
-			value := item.Value()
-			ch <- KeyValue{item.key, value}
-			item = item.Next()
-		}
-		close(ch)
-	}()
-
-	return ch
+		item = item.Next()
+	}
+	return nil
 }

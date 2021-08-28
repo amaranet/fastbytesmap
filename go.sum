@@ -1,2 +1,4 @@
 github.com/itsabgr/atomic2 v0.0.0-20210818210024-bb6ff09eb799 h1:LzDYrvWyi0NGW/tsHgDIKsFgWy/DP3JQrXG7i8hmVWc=
 github.com/itsabgr/atomic2 v0.0.0-20210818210024-bb6ff09eb799/go.mod h1:A9SJqNgBSTV3EAoMd0d/o3QPjFRakbz6FQwZSTYeb14=
+github.com/itsabgr/go-handy v0.0.0-20210823110817-5b8ca3ce7606 h1:FcIn1Z6GWw1479t2K3uNMUzFGNrI6ufb9A0w6xuJPQM=
+github.com/itsabgr/go-handy v0.0.0-20210823110817-5b8ca3ce7606/go.mod h1:/B0ggMYLkMBR70PwLieFK2aKpNdkyhMBCHuhz0FvY04=

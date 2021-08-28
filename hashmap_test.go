@@ -13,17 +13,15 @@ type Animal struct {
 	name string
 }
 
-func uKey(i int) uintptr { return uintptr(i) }
-
 func TestMapCreation(t *testing.T) {
-	m := &HashMap{}
+	m := &Map{}
 	if m.Len() != 0 {
 		t.Errorf("new map should be empty but has %d items.", m.Len())
 	}
 }
 
 func TestGrow(t *testing.T) {
-	m := &HashMap{}
+	m := &Map{}
 	m.Grow(uintptr(63))
 
 	for { // make sure to wait for resize operation to finish
@@ -34,7 +32,7 @@ func TestGrow(t *testing.T) {
 	}
 
 	d := m.mapData()
-	if d.keyshifts != 58 {
+	if d.keyShifts != 58 {
 		t.Error("Grow operation did not result in correct internal map data structure.")
 	}
 }
@@ -71,14 +69,14 @@ func TestResize(t *testing.T) {
 }
 
 func TestHashedKey(t *testing.T) {
-	m := &HashMap{}
+	m := &Map{}
 	_, ok := m.Get(uintptr(0))
 	if ok {
 		t.Error("empty map should not return an item.")
 	}
-	m.DelHashedKey(uintptr(0))
+	m.Delete(uintptr(0))
 	m.allocate(uintptr(64))
-	m.DelHashedKey(uintptr(0))
+	m.Delete(uintptr(0))
 
 	itemCount := 16
 	log := log2(uintptr(itemCount))
@@ -99,7 +97,7 @@ func TestHashedKey(t *testing.T) {
 	}
 
 	for i := 0; i < itemCount; i++ {
-		m.DelHashedKey(uintptr(i) << (strconv.IntSize - log))
+		m.Delete(uintptr(i) << (strconv.IntSize - log))
 	}
 	_, ok = m.Get(uintptr(0))
 	if ok {
@@ -111,7 +109,7 @@ func TestHashedKey(t *testing.T) {
 }
 
 func TestCompareAndSwapHashedKey(t *testing.T) {
-	m := &HashMap{}
+	m := &Map{}
 	elephant := &Animal{"elephant"}
 	monkey := &Animal{"monkey"}
 
@@ -119,13 +117,13 @@ func TestCompareAndSwapHashedKey(t *testing.T) {
 	if m.Len() != 1 {
 		t.Error("map should contain exactly one element.")
 	}
-	if !m.CasHashedKey(1<<(strconv.IntSize-2), elephant, monkey) {
+	if !m.CAS(1<<(strconv.IntSize-2), elephant, monkey) {
 		t.Error("Cas should success if expectation met")
 	}
 	if m.Len() != 1 {
 		t.Error("map should contain exactly one element.")
 	}
-	if m.CasHashedKey(1<<(strconv.IntSize-2), elephant, monkey) {
+	if m.CAS(1<<(strconv.IntSize-2), elephant, monkey) {
 		t.Error("Cas should fail if expectation didn't meet")
 	}
 	if m.Len() != 1 {
@@ -143,7 +141,7 @@ func TestCompareAndSwapHashedKey(t *testing.T) {
 func TestHashMap_parallel(t *testing.T) {
 	max := 10
 	dur := 2 * time.Second
-	m := &HashMap{}
+	m := &Map{}
 	do := func(t *testing.T, max int, d time.Duration, fn func(*testing.T, int)) <-chan error {
 		t.Helper()
 		done := make(chan error)
@@ -205,10 +203,10 @@ func TestHashMap_parallel(t *testing.T) {
 	})
 	t.Run("get-or-insert-and-delete", func(t *testing.T) {
 		doneGetOrInsert := do(t, max, dur, func(t *testing.T, i int) {
-			m.GetOrInsert(uintptr(i), i)
+			m.GetOrAdd(uintptr(i), i)
 		})
 		doneDel := do(t, max, dur, func(t *testing.T, i int) {
-			m.Del(uintptr(i))
+			m.Delete(uintptr(i))
 		})
 		wait(t, doneGetOrInsert)
 		wait(t, doneDel)
@@ -216,19 +214,19 @@ func TestHashMap_parallel(t *testing.T) {
 }
 
 func TestHashMap_SetConcurrent(t *testing.T) {
-	blocks := &HashMap{}
+	blocks := &Map{}
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
 
 		wg.Add(1)
-		go func(blocks *HashMap, i int) {
+		go func(blocks *Map, i int) {
 			defer wg.Done()
 
 			blocks.Set(uintptr(i), struct{}{})
 
 			wg.Add(1)
-			go func(blocks *HashMap, i int) {
+			go func(blocks *Map, i int) {
 				defer wg.Done()
 
 				blocks.Get(uintptr(i))

@@ -1,14 +1,16 @@
-package fastintmap
+package sortedlist
 
 import (
+	"github.com/itsabgr/go-handy"
 	"sync/atomic"
 	"unsafe"
 )
 
 // List is a sorted doubly linked list.
 type List struct {
-	count uintptr
-	head  *ListElement
+	_noCopy handy.NoCopy
+	count   uintptr
+	head    *ListElement
 }
 
 // NewList returns an initialized list.
@@ -25,7 +27,7 @@ func (l *List) Len() int {
 	return int(atomic.LoadUintptr(&l.count))
 }
 
-// First returns the head item of the list.
+// Head returns the head item of the list.
 func (l *List) Head() *ListElement {
 	if l == nil { // not initialized yet?
 		return nil

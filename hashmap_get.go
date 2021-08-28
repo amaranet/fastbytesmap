@@ -1,24 +1,23 @@
 package fastintmap
 
 import (
-	"github.com/itsabgr/atomic2"
-	"unsafe"
+	"github.com/itsabgr/fastintmap/pkg/sortedlist"
 )
 
 // Get retrieves an element from the map under given hashed key.
-func (m *HashMap) Get(hashedKey uintptr) (value interface{}, ok bool) {
+func (m *Map) Get(hashedKey uintptr) (value interface{}, ok bool) {
 	data, element := m.indexElement(hashedKey)
 	if data == nil {
 		return nil, false
 	}
 
-	// inline HashMap.searchItem()
+	// inline Map.searchItem()
 	for element != nil {
-		if uintptr(element.key) == hashedKey {
+		if element.Key() == hashedKey {
 			return element.Value(), true
 		}
 
-		if uintptr(element.key) > hashedKey {
+		if element.Key() > hashedKey {
 			return nil, false
 		}
 
@@ -27,12 +26,12 @@ func (m *HashMap) Get(hashedKey uintptr) (value interface{}, ok bool) {
 	return nil, false
 }
 
-// GetOrInsert returns the existing value for the key if present.
+// GetOrAdd returns the existing value for the key if present.
 // Otherwise, it stores and returns the given value.
 // The loaded result is true if the value was loaded, false if stored.
-func (m *HashMap) GetOrInsert(key uintptr, value interface{}) (actual interface{}, loaded bool) {
+func (m *Map) GetOrAdd(key uintptr, value interface{}) (actual interface{}, loaded bool) {
 	h := key
-	var newelement *ListElement
+	var newElement *sortedlist.ListElement
 
 	for {
 		data, element := m.indexElement(h)
@@ -42,30 +41,27 @@ func (m *HashMap) GetOrInsert(key uintptr, value interface{}) (actual interface{
 		}
 
 		for element != nil {
-			if uintptr(element.key) == h {
+			if element.Key() == h {
 
-				if uintptr(element.key) == key {
+				if element.Key() == key {
 					actual = element.Value()
 					return actual, true
 
 				}
 			}
 
-			if uintptr(element.key) > h {
+			if element.Key() > h {
 				break
 			}
 
 			element = element.Next()
 		}
 
-		if newelement == nil { // allocate only once
-			newelement = &ListElement{
-				key:   atomic2.Uintptr(key),
-				value: unsafe.Pointer(&value),
-			}
+		if newElement == nil { // allocate only once
+			newElement = sortedlist.NewElement(key, value)
 		}
 
-		if m.insertListElement(newelement, false) {
+		if m.insertListElement(newElement, false) {
 			return value, false
 		}
 	}
