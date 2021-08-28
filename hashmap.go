@@ -62,7 +62,7 @@ func (m *Map) list() *sortedlist.List {
 }
 
 func (m *Map) allocate(newSize uintptr) {
-	list := sortedlist.NewList()
+	list := sortedlist.New()
 	// atomic swap in case of another allocation happening concurrently
 	if atomic.CompareAndSwapPointer(&m.listPtr, nil, unsafe.Pointer(list)) {
 		if atomic.CompareAndSwapUintptr(&m.resizing, uintptr(0), uintptr(1)) {

@@ -13,8 +13,8 @@ type List struct {
 	head    *ListElement
 }
 
-// NewList returns an initialized list.
-func NewList() *List {
+// New returns an initialized list.
+func New() *List {
 	return &List{head: &ListElement{}}
 }
 
