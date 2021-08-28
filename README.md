@@ -1,12 +1,15 @@
 # fastintmap 
 
-[![Build Status](https://travis-ci.org/itsabgr/fastintmap.svg?branch=master)](https://travis-ci.org/itsabgr/fastintmap)
 [![GoDoc](https://godoc.org/github.com/itsabgr/fastintmap?status.svg)](https://godoc.org/github.com/itsabgr/fastintmap)
 [![Go Report Card](https://goreportcard.com/badge/itsabgr/fastintmap)](https://goreportcard.com/report/github.com/itsabgr/fastintmap)
+[![GitHub](https://img.shields.io/github/license/itsabgr/fastintmap)](https://github.com/itsabgr/fastintmap/blob/master/LICENSE)
+[![GitHub go.mod Go version (branch)](https://img.shields.io/github/go-mod/go-version/itsabgr/fastintmap/master)](https://github.com/itsabgr/fastintmap/blob/master/go.mod)
+[![Go](https://github.com/itsabgr/fastintmap/actions/workflows/go.yml/badge.svg)](https://github.com/itsabgr/fastintmap/actions/workflows/go.yml)
+
 
 ## Overview
 
-A Golang lock-free thread-safe HashMap optimized for fastest read access.
+A Golang lock-free thread-safe map (with numeric keys only) optimized for fastest read access
 
 ## Usage
 
@@ -39,11 +42,6 @@ count := counter.Get() // read counter
 * thread-safe access without need of a(n extra) mutex
 
 * [Compare-and-swap](https://en.wikipedia.org/wiki/Compare-and-swap) access for values
-
-
-### Benefits over [Golangs sync.Map](https://golang.org/pkg/sync/#Map)
-
-* Faster
 
 ## Technical details
 
