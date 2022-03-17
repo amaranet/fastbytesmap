@@ -9,8 +9,8 @@ import (
 
 const benchmarkItemCount = 1 << 10 // 1024
 
-func setupHashMap(b *testing.B) *Map {
-	m := &Map{}
+func setupHashMap(b *testing.B) *Map[uintptr] {
+	m := &Map[uintptr]{}
 	for i := uintptr(0); i < benchmarkItemCount; i++ {
 		m.Set(i, i)
 	}
@@ -19,8 +19,8 @@ func setupHashMap(b *testing.B) *Map {
 	return m
 }
 
-func setupHashMapString(b *testing.B) (*Map, []uintptr) {
-	m := &Map{}
+func setupHashMapString(b *testing.B) (*Map[uintptr], []uintptr) {
+	m := &Map[uintptr]{}
 	keys := make([]uintptr, benchmarkItemCount)
 	for i := 0; i < benchmarkItemCount; i++ {
 		s := uintptr(i)
@@ -32,8 +32,8 @@ func setupHashMapString(b *testing.B) (*Map, []uintptr) {
 	return m, keys
 }
 
-func setupHashMapHashedKey(b *testing.B) *Map {
-	m := &Map{}
+func setupHashMapHashedKey(b *testing.B) *Map[uintptr] {
+	m := &Map[uintptr]{}
 	log := log2(uintptr(benchmarkItemCount))
 	for i := uintptr(0); i < benchmarkItemCount; i++ {
 		hash := i << (strconv.IntSize - log)
@@ -298,7 +298,7 @@ func BenchmarkReadGoMapStringMutex(b *testing.B) {
 }
 
 func BenchmarkWriteHashMapUint(b *testing.B) {
-	m := &Map{}
+	m := &Map[uintptr]{}
 
 	for n := 0; n < b.N; n++ {
 		for i := uintptr(0); i < benchmarkItemCount; i++ {
@@ -308,7 +308,7 @@ func BenchmarkWriteHashMapUint(b *testing.B) {
 }
 
 func BenchmarkWriteHashMapHashedKey(b *testing.B) {
-	m := &Map{}
+	m := &Map[uintptr]{}
 	log := log2(uintptr(benchmarkItemCount))
 
 	for n := 0; n < b.N; n++ {

@@ -1,35 +1,44 @@
 package fastintmap
 
 import (
+	"fmt"
 	"github.com/itsabgr/fastintmap/pkg/sortedlist"
 )
 
+func cast[T any](t interface{}) T {
+	switch t.(type) {
+	case T:
+		return t.(T)
+	}
+	panic(fmt.Errorf("unsupported type %T", t))
+}
+
 // Get retrieves an element from the map under given hashed key.
-func (m *Map) Get(key uintptr) (value interface{}, ok bool) {
+func (m *Map[T]) Get(key uintptr) (value T, ok bool) {
 	data, element := m.indexElement(key)
 	if data == nil {
-		return nil, false
+		return value, false
 	}
 
 	// inline Map.searchItem()
 	for element != nil {
 		if element.Key() == key {
-			return element.Value(), true
+			return cast[T](element.Value()), true
 		}
 
 		if element.Key() > key {
-			return nil, false
+			return value, false
 		}
 
 		element = element.Next()
 	}
-	return nil, false
+	return value, false
 }
 
 // GetOrAdd returns the existing value for the key if present.
 // Otherwise, it stores and returns the given value.
 // The loaded result is true if the value was loaded, false if stored.
-func (m *Map) GetOrAdd(key uintptr, value interface{}) (actual interface{}, loaded bool) {
+func (m *Map[T]) GetOrAdd(key uintptr, value T) (actual T, loaded bool) {
 	h := key
 	var newElement *sortedlist.ListElement
 
@@ -44,7 +53,7 @@ func (m *Map) GetOrAdd(key uintptr, value interface{}) (actual interface{}, load
 			if element.Key() == h {
 
 				if element.Key() == key {
-					actual = element.Value()
+					actual = cast[T](element.Value())
 					return actual, true
 
 				}

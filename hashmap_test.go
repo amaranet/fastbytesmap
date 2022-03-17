@@ -14,14 +14,14 @@ type Animal struct {
 }
 
 func TestMapCreation(t *testing.T) {
-	m := &Map{}
+	m := &Map[uintptr]{}
 	if m.Len() != 0 {
 		t.Errorf("new map should be empty but has %d items.", m.Len())
 	}
 }
 
 func TestGrow(t *testing.T) {
-	m := &Map{}
+	m := &Map[uintptr]{}
 	m.Grow(uintptr(63))
 
 	for { // make sure to wait for resize operation to finish
@@ -38,7 +38,7 @@ func TestGrow(t *testing.T) {
 }
 
 func TestResize(t *testing.T) {
-	m := New(2)
+	m := New[*Animal](2)
 	itemCount := 50
 
 	for i := 0; i < itemCount; i++ {
@@ -69,7 +69,7 @@ func TestResize(t *testing.T) {
 }
 
 func TestHashedKey(t *testing.T) {
-	m := &Map{}
+	m := &Map[*Animal]{}
 	_, ok := m.Get(uintptr(0))
 	if ok {
 		t.Error("empty map should not return an item.")
@@ -109,7 +109,7 @@ func TestHashedKey(t *testing.T) {
 }
 
 func TestCompareAndSwapHashedKey(t *testing.T) {
-	m := &Map{}
+	m := &Map[*Animal]{}
 	elephant := &Animal{"elephant"}
 	monkey := &Animal{"monkey"}
 
@@ -141,7 +141,7 @@ func TestCompareAndSwapHashedKey(t *testing.T) {
 func TestHashMap_parallel(t *testing.T) {
 	max := 10
 	dur := 2 * time.Second
-	m := &Map{}
+	m := &Map[int]{}
 	do := func(t *testing.T, max int, d time.Duration, fn func(*testing.T, int)) <-chan error {
 		t.Helper()
 		done := make(chan error)
@@ -214,19 +214,19 @@ func TestHashMap_parallel(t *testing.T) {
 }
 
 func TestHashMap_SetConcurrent(t *testing.T) {
-	blocks := &Map{}
+	blocks := &Map[struct{}]{}
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
 
 		wg.Add(1)
-		go func(blocks *Map, i int) {
+		go func(blocks *Map[struct{}], i int) {
 			defer wg.Done()
 
 			blocks.Set(uintptr(i), struct{}{})
 
 			wg.Add(1)
-			go func(blocks *Map, i int) {
+			go func(blocks *Map[struct{}], i int) {
 				defer wg.Done()
 
 				blocks.Get(uintptr(i))
